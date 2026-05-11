@@ -1,0 +1,23 @@
+[package]
+name = "pohe-wasm-core"
+version = "0.1.0"
+edition = "2021"
+description = "PoHE sequential hash-chain VDF, compiled to Wasm."
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+sha2 = "0.10"
+# Intentionally single-threaded. Do NOT enable rayon / wasm threads.
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+# Small + fast. `opt-level = "s"` keeps the wasm payload compact.
+opt-level = "s"
+lto = true
+codegen-units = 1

@@ -1,0 +1,12 @@
+{
+  "name": "pohe-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Proof of Harmonic Equilibrium - monorepo root",
+  "scripts": {
+    "dev:client": "pnpm --filter ./client dev",
+    "build:client": "pnpm --filter ./client build",
+    "compile:contracts": "pnpm --filter ./contracts compile"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

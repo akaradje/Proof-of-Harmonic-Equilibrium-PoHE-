@@ -1,0 +1,2 @@
+# wasm-pack build output goes here. Run:
+#   cd wasm-core && wasm-pack build --target web --out-dir ../client/src/wasm/pkg
