@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { injected } from "wagmi/connectors";
 import { useCanvasReducer } from "../hooks/useCanvasReducer";
 import type { LayoutTemplate } from "../App";
 
@@ -23,12 +25,53 @@ type ServerMessage = SeedMessage | AckMessage;
 const RELAY_WS_URL: string =
   (import.meta.env.VITE_RELAY_WS_URL as string) || "ws://localhost:8080/ws";
 
+// ---- Wallet Button ----
+
+function WalletButton() {
+  const { address, isConnected, isConnecting } = useAccount();
+  const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  if (isConnecting) {
+    return (
+      <button className="hud__btn" disabled>
+        Connecting...
+      </button>
+    );
+  }
+
+  if (isConnected && address) {
+    const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
+    return (
+      <button
+        className="hud__btn"
+        title={address}
+        onClick={() => disconnect()}
+      >
+        {short}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      className="hud__btn"
+      onClick={() => connect({ connector: injected() })}
+    >
+      Connect Wallet
+    </button>
+  );
+}
+
+// ---- Main HUD ----
+
 /**
  * Main HUD. Owns the WebSocket to the relay and spawns a single-threaded
  * Web Worker per seed. The Worker runs the Wasm VDF; the Canvas reducer
  * mirrors its progress as Liquid Information animation.
  */
 export function HUD({ template: _template }: { template: LayoutTemplate }) {
+  const { address, isConnected } = useAccount();
   const [status, setStatus] = useState<MinerStatus>("idle");
   const [lastTx, setLastTx] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +79,15 @@ export function HUD({ template: _template }: { template: LayoutTemplate }) {
   const wsRef = useRef<WebSocket | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const minerAddressRef = useRef<string>(
-    "0x000000000000000000000000000000000000dEaD"
+    "0x0000000000000000000000000000000000000000"
   );
 
   const { attach, onTick, onEquilibrium, onIdle } = useCanvasReducer();
+
+  // Sync miner address from wallet
+  useEffect(() => {
+    minerAddressRef.current = address ?? "0x0000000000000000000000000000000000000000";
+  }, [address]);
 
   useEffect(() => {
     if (canvasRef.current) attach(canvasRef.current);
@@ -137,26 +185,24 @@ export function HUD({ template: _template }: { template: LayoutTemplate }) {
   return (
     <section className="hud glass">
       <div className="hud__controls">
-        <button className="hud__btn" onClick={startMining} disabled={status === "mining"}>
+        <WalletButton />
+        <button
+          className="hud__btn"
+          onClick={startMining}
+          disabled={status === "mining" || !isConnected}
+        >
           Start mining
         </button>
         <button className="hud__btn" onClick={stopMining} disabled={status === "idle"}>
           Stop
         </button>
-        <input
-          className="hud__input"
-          placeholder="Miner address (0x...)"
-          defaultValue={minerAddressRef.current}
-          onChange={(e) => {
-            minerAddressRef.current = e.target.value.trim();
-          }}
-        />
       </div>
 
       <canvas ref={canvasRef} className="hud__canvas" aria-label="Liquid Information" />
 
       <div className="hud__status">
         <span>Status: {status}</span>
+        {isConnected && address && <span>Miner: {address}</span>}
         {lastTx && <span>Last mint tx: {lastTx}</span>}
         {error && <span className="hud__error">Error: {error}</span>}
       </div>
