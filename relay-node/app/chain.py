@@ -6,7 +6,6 @@ from typing import Protocol
 
 from eth_account import Account
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
 
 log = logging.getLogger(__name__)
 
@@ -42,8 +41,13 @@ class Web3MintOracle:
         if not (rpc_url and private_key and token_address):
             raise RuntimeError("rpc_url, private_key, and token_address are required")
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
-        # Harmless on non-PoA chains; required on some Sepolia providers.
-        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # Inject PoA middleware — the API changed in web3 v7.
+        try:
+            from web3.middleware import ExtraDataToPOAMiddleware  # web3 >= 7
+            self.w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        except ImportError:
+            from web3.middleware import geth_poa_middleware  # web3 6.x
+            self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
         self.account = Account.from_key(private_key)
         self.chain_id = chain_id
         self.contract = self.w3.eth.contract(
@@ -67,7 +71,8 @@ class Web3MintOracle:
             }
         )
         signed = self.account.sign_transaction(tx)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        raw = getattr(signed, "raw_transaction", None) or signed.rawTransaction
+        tx_hash = self.w3.eth.send_raw_transaction(raw)
         log.info("minted reward tx=%s miner=%s amount=%d", tx_hash.hex(), miner, amount)
         return tx_hash.hex()
 
