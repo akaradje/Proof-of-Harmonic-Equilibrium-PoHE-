@@ -48,14 +48,31 @@ pub fn mine(seed: &[u8], difficulty: u64, checkpoint_every: u64) -> Result<Proof
         return Err(JsError::new("checkpoint_every must be > 0"));
     }
 
-    let (final_state, checkpoints) =
-        vdf::run_chain(seed, difficulty, checkpoint_every);
+    let (final_state, checkpoints) = vdf::run_chain(seed, difficulty, checkpoint_every);
 
     Ok(ProofBundle {
         final_state,
         checkpoints,
         iterations: difficulty,
     })
+}
+
+/// Run a chunk of the VDF chain starting from a pre-computed state.
+///
+/// * `start_state` — 32-byte state to resume from (produced at round `start_round`).
+/// * `start_round` — the round index that produced `start_state`.
+/// * `rounds` — number of additional iterations to run.
+///
+/// Returns the new state after `rounds` iterations.
+///
+/// This allows the caller to split a long VDF computation across multiple
+/// frames or worker messages without blocking the main thread.
+#[wasm_bindgen]
+pub fn mine_chunk(start_state: &[u8], start_round: u64, rounds: u64) -> Result<Vec<u8>, JsError> {
+    if start_state.len() != 32 {
+        return Err(JsError::new("start_state must be 32 bytes"));
+    }
+    Ok(vdf::run_chain_segment(start_state, start_round, rounds))
 }
 
 /// Verify a proof by re-running the chain between two checkpoints.

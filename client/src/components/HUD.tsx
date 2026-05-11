@@ -95,7 +95,6 @@ export function HUD({ template: _template }: { template: LayoutTemplate }) {
 
   // ---- worker lifecycle ----
   function spawnWorker(): Worker {
-    // Vite-native worker syntax. `type: "module"` is required for ESM wasm glue.
     const w = new Worker(new URL("../wasm/miner.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -154,7 +153,6 @@ export function HUD({ template: _template }: { template: LayoutTemplate }) {
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data) as ServerMessage;
       if (msg.type === "seed") {
-        // Respawn a fresh worker per seed — guarantees no leftover state.
         workerRef.current?.terminate();
         workerRef.current = spawnWorker();
         workerRef.current.postMessage({
@@ -205,6 +203,7 @@ export function HUD({ template: _template }: { template: LayoutTemplate }) {
         {isConnected && address && <span>Miner: {address}</span>}
         {lastTx && <span>Last mint tx: {lastTx}</span>}
         {error && <span className="hud__error">Error: {error}</span>}
+        {address && <span className="hud__addr">{address}</span>}
       </div>
     </section>
   );

@@ -50,4 +50,31 @@ describe("PoHEToken", () => {
       token.connect(relay).mintReward(miner.address, tooMuch, seed)
     ).to.be.revertedWithCustomError(token, "MintAmountExceedsCap");
   });
+
+  it("admin can revoke MINTER_ROLE from relay, blocking future mints", async () => {
+    const { token, admin, relay, miner } = await deploy();
+    const minterRole = await token.MINTER_ROLE();
+
+    // Admin revokes the relay's minter role.
+    await token.connect(admin).revokeRole(minterRole, relay.address);
+
+    // Relay can no longer mint — reverts with OZ v5 AccessControl error.
+    const seed = ethers.keccak256(ethers.toUtf8Bytes("seed-revoked"));
+    await expect(
+      token.connect(relay).mintReward(miner.address, 100n, seed)
+    ).to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
+  });
+
+  it("admin can grant MINTER_ROLE to a new address, enabling mints", async () => {
+    const { token, admin, stranger, miner } = await deploy();
+    const minterRole = await token.MINTER_ROLE();
+
+    // Admin grants minter role to an address that had no prior role.
+    await token.connect(admin).grantRole(minterRole, stranger.address);
+
+    // The newly authorized minter can mint.
+    const seed = ethers.keccak256(ethers.toUtf8Bytes("seed-new-minter"));
+    await token.connect(stranger).mintReward(miner.address, 200n, seed);
+    expect(await token.balanceOf(miner.address)).to.equal(200n);
+  });
 });
